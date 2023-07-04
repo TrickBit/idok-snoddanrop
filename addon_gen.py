@@ -155,7 +155,7 @@ class Generator:
 
 
 
-def zipfolder(source_dir, target_file ):
+def zipfolder(source_dir, target_file , verbose=False):
 
     zipobj = zipfile.ZipFile(target_file, 'w', zipfile.ZIP_DEFLATED)
 
@@ -179,7 +179,8 @@ def zipfolder(source_dir, target_file ):
         for filename in filenames:
             if re.search(".fuse_hidden", filename): continue
             if not ".git" in foldername and not "zips" in foldername:
-                # print("storing %s" % os.path.join(archive_folder_name, filename))
+                if verbose:
+                    print("storing %s" % os.path.join(archive_folder_name, filename))
                 zipobj.write(os.path.join(foldername, filename), arcname=os.path.join(archive_folder_name, filename))
     zipobj.close()
 
@@ -212,7 +213,7 @@ if ( __name__ == "__main__" ):
     filesinrootdir = os.listdir(cwd)
     for foldertozip in gen.get_addons():
         version="-unknown"
-        print(foldertozip)
+        print('folder to zip =' , foldertozip)
         zipfilenamefirstpart,zipfilenamelastpart = os.path.split(foldertozip)
 
         zipsfolder = os.path.join(foldertozip,'zips')
@@ -227,6 +228,11 @@ if ( __name__ == "__main__" ):
 
             sourcefile=os.path.join(foldertozip,filetozip)
             print ('processing file: ' + sourcefile)
+            if re.search("addon.xml", filetozip) : #copy both "addon.xml" and "addon.xml.md5" files to the zip folder
+                newname=os.path.join(zipsfolder,filetozip)
+                shutil.copyfile(sourcefile,newname)
+                print (' --> ' + newname)
+
             if re.search("addon.xml", filetozip) and not re.search("addon.xml.md5", filetozip) : # get version number of plugin
                 try:
                     tree = ET.parse(sourcefile)
@@ -238,7 +244,7 @@ if ( __name__ == "__main__" ):
                     raise
                 root = tree.getroot()
                 for elem in root.iter('addon'):
-                    print (elem.tag + ': ' + elem.attrib['version'])
+                    # print (elem.tag + ': ' + elem.attrib['version'])
                     version = '-'+elem.attrib['version']
                 continue
             if re.search("changelog", filetozip):
@@ -246,15 +252,25 @@ if ( __name__ == "__main__" ):
                 lastpart = filetozip[len(filetozip)-4:]
                 newname=os.path.join(zipsfolder,firstpart+version+lastpart)
                 shutil.copyfile(sourcefile,newname)
-                print ('Copying \n\t\t' + sourcefile + '\nto\n\t\t' + newname)
+                # print ('Copying \n\t\t' + sourcefile + '\nto\n\t\t' + newname)
+                print (' --> ' + newname)
+
             if re.search("icon|fanart", filetozip):
                 newname=os.path.join(zipsfolder,filetozip)
                 shutil.copyfile(sourcefile,newname)
-                print ('Copying ' + sourcefile + ' to ' + newname)
+                # print ('Copying ' + sourcefile + ' to ' + newname)
+                print (' --> ' + newname)
 
             zipfilename = os.path.join(zipsfolder,zipfilenamelastpart + "-" + version + '.zip')
 
-            if os.path.isfile(zipfilename):
-                os.unlink(zipfilename)
 
-            zipfolder(foldertozip, zipfilename )
+        #  we want to recreate zips when version doesnt change but when the addon.xml changes
+        # have to write some code to do the md5 check and the skip this bit its unchanged
+        if os.path.isfile(zipfilename):
+            os.unlink(zipfilename)
+
+        if not os.path.isfile(zipfilename):  # only do it on new changes/versions
+            print (' zipping file: ' + zipfilename)
+            zipfolder(foldertozip, zipfilename , False ) #git hell if it re-zips the samething each time
+        else:
+            print (' skip zipping file: ' + zipfilename)
