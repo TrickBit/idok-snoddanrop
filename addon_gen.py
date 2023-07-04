@@ -60,6 +60,7 @@ class Generator:
     def __init__( self ):
         # we're gonna return this so there's only be traversal of known good folders\
         self.addons=[]
+        self.startdir=os.getcwd()
         # generate files
         self._generate_addons_file()
         self._generate_md5_file()
@@ -98,6 +99,8 @@ class Generator:
                 # if ( not os.path.isdir( addon ) or addon == ".svn" or addon == ".git" ): continue
                 # create path
                 _path = os.path.join( addon, "addon.xml" )
+                # generate md5 for all the smaller xml files
+                self._generate_md5_file(_path)
                 # split lines for stripping
                 xml_lines = open( _path, "r" ).read().splitlines()
                 # new addon
@@ -121,21 +124,25 @@ class Generator:
         # save file
         self._save_file( addons_xml.encode( "UTF-8" ), file="addons.xml" )
 
-    def _generate_md5_file( self ):
+    def _generate_md5_file( self , addonxmlpath=None ):
+        if addonxmlpath:
+            addonxmlfile=addonxmlpath
+        else:
+            addonxmlfile=os.path.join(self.startdir,"addons.xml")
         # create a new md5 hash
         try:
             import md5
-            m = md5.new( open( "addons.xml", "r" ).read() ).hexdigest()
+            m = md5.new( open( addonxmlfile, "r" ).read() ).hexdigest()
         except ImportError:
             import hashlib
-            m = hashlib.md5( open( "addons.xml", "r", encoding="UTF-8" ).read().encode( "UTF-8" ) ).hexdigest()
+            m = hashlib.md5( open( addonxmlfile, "r", encoding="UTF-8" ).read().encode( "UTF-8" ) ).hexdigest()
 
         # save file
         try:
-            self._save_file( m.encode( "UTF-8" ), file="addons.xml.md5" )
+            self._save_file( m.encode( "UTF-8" ), file="%s.md5" % addonxmlfile )
         except Exception as e:
             # oops
-            print("An error occurred creating addons.xml.md5 file!\n%s" % e)
+            print("%s - An error occurred creating addons.xml.md5 file!\n" % e)
 
     def _save_file( self, data, file ):
         try:
@@ -143,7 +150,7 @@ class Generator:
             open( file, "wb" ).write( data )
         except Exception as e:
             # oops
-            print("An error occurred saving %s file!\n%s" % ( file, e ))
+            print("%s - An error occurred saving %s file!\n" % ( e,file ))
 
 
 
@@ -220,7 +227,7 @@ if ( __name__ == "__main__" ):
 
             sourcefile=os.path.join(foldertozip,filetozip)
             print ('processing file: ' + sourcefile)
-            if re.search("addon.xml", filetozip): # get version number of plugin
+            if re.search("addon.xml", filetozip) and not re.search("addon.xml.md5", filetozip) : # get version number of plugin
                 try:
                     tree = ET.parse(sourcefile)
                 except:
